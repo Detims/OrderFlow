@@ -1,0 +1,60 @@
+services:
+  order-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: orders
+      POSTGRES_USER: ${POSTGRES_USER:-orderflow}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-local-dev-only}
+    ports: ["5433:5432"]
+    volumes: ["order-data:/var/lib/postgresql/data"]
+    healthcheck: {test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-orderflow} -d orders"], interval: 5s, timeout: 3s, retries: 10}
+  inventory-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: inventory
+      POSTGRES_USER: ${POSTGRES_USER:-orderflow}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-local-dev-only}
+    ports: ["5434:5432"]
+    volumes: ["inventory-data:/var/lib/postgresql/data"]
+    healthcheck: {test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-orderflow} -d inventory"], interval: 5s, timeout: 3s, retries: 10}
+  localstack:
+    image: localstack/localstack:4.6
+    environment: 
+      SERVICES: sqs
+      AWS_DEFAULT_REGION: ${AWS_REGION:-us-west-2}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+    ports: ["4566:4566"]
+    volumes: ["./infra/localstack/init-queues.sh:/etc/localstack/init/ready.d/init-queues.sh:ro"]
+    healthcheck: {test: ["CMD", "bash", "-c", "awslocal sqs get-queue-url --queue-name order-requests >/dev/null && awslocal sqs get-queue-url --queue-name order-results >/dev/null"], interval: 5s, timeout: 3s, retries: 20}
+  order-service:
+    build: {context: ., dockerfile: services/order-service/Dockerfile}
+    environment:
+      DB_URL: jdbc:postgresql://order-db:5432/orders
+      DB_USER: ${POSTGRES_USER:-orderflow}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-local-dev-only}
+      AWS_REGION: ${AWS_REGION:-us-west-2}
+      AWS_ENDPOINT_URL: http://localstack:4566
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+    ports: ["8080:8080"]
+    depends_on:
+      order-db: {condition: service_healthy}
+      localstack: {condition: service_healthy}
+  inventory-service:
+    build: {context: ., dockerfile: services/inventory-service/Dockerfile}
+    environment:
+      DB_URL: jdbc:postgresql://inventory-db:5432/inventory
+      DB_USER: ${POSTGRES_USER:-orderflow}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-local-dev-only}
+      AWS_REGION: ${AWS_REGION:-us-west-2}
+      AWS_ENDPOINT_URL: http://localstack:4566
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+    ports: ["8081:8081"]
+    depends_on:
+      inventory-db: {condition: service_healthy}
+      localstack: {condition: service_healthy}
+volumes:
+  order-data:
+  inventory-data:
