@@ -19,4 +19,20 @@ messaging:
   result-queue: order-results
   request-routing-key: order.requested
   result-routing-key: order.result
-management.endpoints.web.exposure.include: health,info
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      group:
+        readiness:
+          include: readinessState,db,rabbit
+  health:
+    livenessstate:
+      enabled: true
+    readinessstate:
+      enabled: true
