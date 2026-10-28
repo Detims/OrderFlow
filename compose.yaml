@@ -17,44 +17,41 @@ services:
     ports: ["5434:5432"]
     volumes: ["inventory-data:/var/lib/postgresql/data"]
     healthcheck: {test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-orderflow} -d inventory"], interval: 5s, timeout: 3s, retries: 10}
-  localstack:
-    image: localstack/localstack:4.6
-    environment: 
-      SERVICES: sqs
-      AWS_DEFAULT_REGION: ${AWS_REGION:-us-west-2}
-      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
-      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
-    ports: ["4566:4566"]
-    volumes: ["./infra/localstack/init-queues.sh:/etc/localstack/init/ready.d/init-queues.sh:ro"]
-    healthcheck: {test: ["CMD", "bash", "-c", "awslocal sqs get-queue-url --queue-name order-requests >/dev/null && awslocal sqs get-queue-url --queue-name order-results >/dev/null"], interval: 5s, timeout: 3s, retries: 20}
+  rabbitmq:
+    image: rabbitmq:4-management-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: ${POSTGRES_USER:-orderflow}
+      RABBITMQ_DEFAULT_PASS: ${POSTGRES_PASSWORD:-local-dev-only}
+    ports: ["5672:5672", "15672:15672"]
+    volumes: ["rabbitmq-data:/var/lib/rabbitmq"]
+    healthcheck: {test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"], interval: 5s, timeout: 5s, retries: 20}
   order-service:
     build: {context: ., dockerfile: services/order-service/Dockerfile}
     environment:
       DB_URL: jdbc:postgresql://order-db:5432/orders
       DB_USER: ${POSTGRES_USER:-orderflow}
       DB_PASSWORD: ${POSTGRES_PASSWORD:-local-dev-only}
-      AWS_REGION: ${AWS_REGION:-us-west-2}
-      AWS_ENDPOINT_URL: http://localstack:4566
-      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
-      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_USER: ${POSTGRES_USER:-orderflow}
+      RABBITMQ_PASSWORD: ${POSTGRES_PASSWORD:-local-dev-only}
     ports: ["8080:8080"]
     depends_on:
       order-db: {condition: service_healthy}
-      localstack: {condition: service_healthy}
+      rabbitmq: {condition: service_healthy}
   inventory-service:
     build: {context: ., dockerfile: services/inventory-service/Dockerfile}
     environment:
       DB_URL: jdbc:postgresql://inventory-db:5432/inventory
       DB_USER: ${POSTGRES_USER:-orderflow}
       DB_PASSWORD: ${POSTGRES_PASSWORD:-local-dev-only}
-      AWS_REGION: ${AWS_REGION:-us-west-2}
-      AWS_ENDPOINT_URL: http://localstack:4566
-      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
-      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_USER: ${POSTGRES_USER:-orderflow}
+      RABBITMQ_PASSWORD: ${POSTGRES_PASSWORD:-local-dev-only}
     ports: ["8081:8081"]
     depends_on:
       inventory-db: {condition: service_healthy}
-      localstack: {condition: service_healthy}
+      rabbitmq: {condition: service_healthy}
 volumes:
   order-data:
   inventory-data:
+  rabbitmq-data:

@@ -1,33 +1,25 @@
 package com.orderflow.inventory;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.amqp.rabbit.annotation.RabbitListener;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.stereotype.Component;
-import software.amazon.awssdk.services.sqs.SqsClient;
-import software.amazon.awssdk.services.sqs.model.*;
 import java.util.UUID;
 @Component
 public class InventoryMessaging {
-    private final SqsClient sqs; private final ObjectMapper json; private final ReservationService reservations;
-    private final String requestQueue,resultQueue;
-    public InventoryMessaging(SqsClient sqs,ObjectMapper json,ReservationService reservations,
-      @Value("${queues.request-name}") String requestName,@Value("${queues.result-name}") String resultName){
-        this.sqs=sqs;this.json=json;this.reservations=reservations;
-        this.requestQueue=sqs.getQueueUrl(GetQueueUrlRequest.builder().queueName(requestName).build()).queueUrl();
-        this.resultQueue=sqs.getQueueUrl(GetQueueUrlRequest.builder().queueName(resultName).build()).queueUrl();
+    private final RabbitTemplate rabbit; private final ObjectMapper json; private final ReservationService reservations;
+    private final String exchange,resultRoutingKey;
+    public InventoryMessaging(RabbitTemplate rabbit,ObjectMapper json,ReservationService reservations,
+      @Value("${messaging.exchange}") String exchange,@Value("${messaging.result-routing-key}") String resultRoutingKey){
+        this.rabbit=rabbit;this.json=json;this.reservations=reservations;
+        this.exchange=exchange;this.resultRoutingKey=resultRoutingKey;
     }
-    @Scheduled(fixedDelayString="${queues.poll-delay-ms:1000}")
-    public void pollRequests(){
-        var messages=sqs.receiveMessage(ReceiveMessageRequest.builder().queueUrl(requestQueue).waitTimeSeconds(1).maxNumberOfMessages(5).build()).messages();
-        for(var message:messages){
-            try{
-                var request=json.readValue(message.body(),OrderRequested.class);
-                boolean reserved=reservations.reserve(request.orderId(),request.sku(),request.quantity());
-                var result=new OrderResult(request.orderId(),reserved);
-                sqs.sendMessage(SendMessageRequest.builder().queueUrl(resultQueue).messageBody(json.writeValueAsString(result)).build());
-                sqs.deleteMessage(DeleteMessageRequest.builder().queueUrl(requestQueue).receiptHandle(message.receiptHandle()).build());
-            }catch(Exception e){System.err.println("Order request left on queue for retry: "+e.getMessage());}
-        }
+    @RabbitListener(queues="${messaging.request-queue}")
+    public void receiveRequest(String body) throws Exception {
+        var request=json.readValue(body,OrderRequested.class);
+        boolean reserved=reservations.reserve(request.orderId(),request.sku(),request.quantity());
+        var result=new OrderResult(request.orderId(),reserved);
+        rabbit.convertAndSend(exchange,resultRoutingKey,json.writeValueAsString(result));
     }
     public record OrderRequested(UUID orderId,String sku,int quantity){}
     public record OrderResult(UUID orderId,boolean reserved){}
