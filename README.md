@@ -13,7 +13,7 @@ This is an educational MVP. The database write and first SQS publish are separat
 
 ## Requirements
 
-- Java 21
+- Java 25 (JDK 25)
 - Maven 3.6.3+
 - Docker Desktop with Docker Compose
 
