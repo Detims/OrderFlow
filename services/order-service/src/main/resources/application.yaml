@@ -1,11 +1,6 @@
 server:
   port: ${SERVER_PORT:8080}
 spring:
-  rabbitmq:
-    host: ${RABBITMQ_HOST:localhost}
-    port: ${RABBITMQ_PORT:5672}
-    username: ${RABBITMQ_USER:orderflow}
-    password: ${RABBITMQ_PASSWORD:local-dev-only}
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5433/orders}
     username: ${DB_USER:orderflow}
@@ -13,10 +8,10 @@ spring:
   jpa:
     hibernate.ddl-auto: update
     open-in-view: false
-messaging:
-  exchange: orderflow.exchange
-  request-queue: order-requests
-  result-queue: order-results
-  request-routing-key: order.requested
-  result-routing-key: order.result
+aws:
+  region: ${AWS_REGION:us-west-2}
+  endpoint: ${AWS_ENDPOINT_URL:}
+queues:
+  request-name: ${ORDER_REQUEST_QUEUE:order-requests}
+  result-name: ${ORDER_RESULT_QUEUE:order-results}
 management.endpoints.web.exposure.include: health,info
