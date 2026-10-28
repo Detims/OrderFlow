@@ -1,6 +1,6 @@
 # OrderFlow
 
-OrderFlow is a Java 21 / Spring Boot backend portfolio project built around two microservices: `order-service` and `inventory-service`. It uses separate PostgreSQL databases and RabbitMQ for asynchronous messaging. **The primary deployment target is a local Kubernetes cluster; the project does not use AWS.**
+OrderFlow is a Spring Boot backend project built around two microservices: `order-service` and `inventory-service`. It uses separate PostgreSQL databases and RabbitMQ for asynchronous messaging.
 
 ## Order flow
 
@@ -98,14 +98,3 @@ The request returns `PENDING`; poll until it becomes `CONFIRMED` or `REJECTED`. 
 ## Tests
 
 From the repository root, run `mvn test` when Maven is installed. The current tests cover reservation outcomes and duplicate-message handling.
-
-## Configuration and AWS
-
-The local credential defaults in `.env.example` and the Kubernetes instructions are for development only. Do not put production credentials in `.env`, YAML manifests, source code, or committed files. The application has no AWS SDK dependencies and does not call AWS services. Local Kubernetes uses only your computer's resources; AWS costs arise only if you separately deploy resources to AWS.
-
-## Stretch goals
-
-- Add a transactional outbox and dead-letter queues.
-- Add Testcontainers integration tests and a CI workflow that builds and scans the images.
-- Add Helm packaging, autoscaling, and network policies after the direct Kubernetes manifests are understood.
-- Consider EKS only if cloud Kubernetes deployment becomes a separate goal.
