@@ -1,6 +1,6 @@
 # OrderFlow
 
-A small Java 21 / Spring Boot portfolio project demonstrating two independently deployable services, separate PostgreSQL databases, and asynchronous order processing over SQS.
+OrderFlow is a Spring Boot backend project built around two microservices: `order-service` and `inventory-service`. It uses separate PostgreSQL databases and asynchronous messaging through Amazon SQS.
 
 ## What happens when an order is submitted
 
@@ -13,7 +13,7 @@ This is an educational MVP. The database write and first SQS publish are separat
 
 ## Requirements
 
-- Java 21
+- Java 25 (JDK 25)
 - Maven 3.6.3+
 - Docker Desktop with Docker Compose
 
