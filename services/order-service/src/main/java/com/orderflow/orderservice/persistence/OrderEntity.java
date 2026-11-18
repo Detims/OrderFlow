@@ -21,4 +21,10 @@ public class OrderEntity {
     @Column(nullable = false) @Enumerated(EnumType.STRING) OrderStatus status;
 
     protected OrderEntity() {}
+
+    public OrderEntity(String sku, int quantity, OrderStatus status) {
+        this.sku = sku;
+        this.quantity = quantity;
+        this.status = status;
+    }
 }
